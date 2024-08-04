@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist/",
+        "noImplicitAny": false,
+        "noImplicitOverride": true,
+        "module": "ES2020",
+        "target": "ES2020",
+        "jsx": "react",
+        "allowJs": true,
+        "moduleResolution": "node",
+        "importHelpers": true,
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "baseUrl": ".",
+        "paths": {
+            "~/*": [
+                "./*"
+            ]
+        },
+    }
+}

@@ -1,0 +1,6 @@
+{
+    "ignore": ["**/*.test.tsx", "**/*.spec.tsx", "node_modules"],
+    "watch": ["ui/src"],
+    "exec": "yarn build:ui",
+    "ext": "ts,tsx,css"
+}
