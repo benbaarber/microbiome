@@ -1,5 +1,4 @@
 use axum::extract::ws::Message;
-use microbiome::Microbiome;
 use serde_json::json;
 use std::error::Error;
 use std::sync::Arc;
@@ -26,11 +25,11 @@ pub fn build_websocket_msg(msgb: Vec<Vec<u8>>) -> Result<Option<Message>, Box<dy
 
     let json_msg = match cmd_str.as_str() {
         "state" => {
-            let state: Microbiome = serde_json::from_slice(&msgb[2])?;
+            let value = serde_json::from_slice::<serde_json::Value>(&msgb[2])?;
 
             json!({
                 "event": cmd_str,
-                "data": state,
+                "data": value,
             })
         }
         _ => return Ok(None),

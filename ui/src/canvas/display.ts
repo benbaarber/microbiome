@@ -1,4 +1,4 @@
-import { Entity } from "../types";
+import { Entity, FrameData } from "../types";
 
 class Display {
   canvas: HTMLCanvasElement;
@@ -38,10 +38,23 @@ class Display {
   }
 
   drawEntity(entity: Entity) {
-    const { pos, mass } = entity;
-    this.cx.fillStyle = "black";
-    this.cx.ellipse(pos[0], pos[1], mass, mass, 0, 0, 2 * Math.PI);
+    const { pos, radius, color } = entity;
+    this.cx.beginPath();
+    this.cx.fillStyle = color;
+    this.cx.ellipse(pos[0], pos[1], radius, radius, 0, 0, 2 * Math.PI);
     this.cx.fill();
+  }
+
+  draw(frame: FrameData) {
+    this.clear();
+
+    for (const food of frame.food) {
+      this.drawEntity(food);
+    }
+
+    for (const npc of frame.npcs) {
+      this.drawEntity(npc);
+    }
   }
 }
 

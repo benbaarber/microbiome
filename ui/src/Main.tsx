@@ -7,7 +7,7 @@ const Main: React.FC = () => {
 
   useWebSocket("state", (data) => {
     console.log("Data received", data);
-    d?.drawEntity(data.agent);
+    d?.draw(data);
   });
 
   const canvasMounted = useCallback((node: HTMLCanvasElement) => {

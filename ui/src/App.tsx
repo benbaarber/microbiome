@@ -6,7 +6,7 @@ import "./style.css";
 
 const App: React.FC = () => {
   return (
-    <div className="mono no-scrollbar h-screen w-screen">
+    <div className="mono no-scrollbar h-screen w-screen bg-black">
       <WebSocketProvider>
         <Main />
       </WebSocketProvider>
