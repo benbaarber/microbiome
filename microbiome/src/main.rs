@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use microbiome::{constants::FRAME_DURATION, Microbiome};
+use microbiome::{invariants::FRAME_DURATION, Microbiome};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut mb = Microbiome::new();

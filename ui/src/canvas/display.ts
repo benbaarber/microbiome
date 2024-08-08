@@ -52,7 +52,7 @@ class Display {
       this.drawEntity(food);
     }
 
-    for (const npc of frame.npcs) {
+    for (const npc of frame.npcs.reverse()) {
       this.drawEntity(npc);
     }
   }
