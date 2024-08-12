@@ -357,9 +357,9 @@ dependencies = [
 
 [[package]]
 name = "quadtree"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5442e15a058aabff81c8ce454c3b4f31cf7606887a9bef91c2fbc27583445fbf"
+checksum = "98a2f2a1f2854c2277534f939a5295fb1651caa20486b45a82b82ca475cad6fa"
 dependencies = [
  "nalgebra",
  "serde",

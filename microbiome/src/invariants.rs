@@ -4,6 +4,15 @@ pub const SIZE: f64 = 500.0;
 /// Base speed of cells, decreases with mass
 pub const BASE_SPEED: f64 = 4.0;
 
+/// Perception radius of cells for other cells
+pub const CELL_PERCEPTION_RADIUS: f64 = 200.0;
+
+/// Perception radius of cells for food
+pub const FOOD_PERCEPTION_RADIUS: f64 = 50.0;
+
+/// How much bigger a cell must be to eat another
+pub const EAT_DIFF: f64 = 5.0;
+
 /// Max frame rate to send through pub socket
 pub const FPS: u64 = 30;
 
@@ -17,7 +26,7 @@ pub const INITIAL_NUM_NPCS: usize = 10;
 pub const INITIAL_FOOD_SUPPLY: usize = 20;
 
 /// How much food is spawned per second
-pub const FOOD_SPAWN_RATE: u64 = 3;
+pub const FOOD_SPAWN_RATE: u64 = 10;
 
 /// Base mass decay rate, increases with mass
 pub const BASE_MASS_DECAY_RATE: f64 = 1.0;
