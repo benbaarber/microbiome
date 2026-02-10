@@ -1,3 +1,4 @@
+pub mod brain;
 pub mod game;
 pub mod invariants;
 pub mod rendering;

@@ -1,6 +1,7 @@
 use clap::Parser;
 use macroquad::prelude::*;
 
+use crate::brain;
 use crate::invariants;
 use crate::rendering::Renderer;
 use crate::simulation::{EntityId, EntityType, World, WorldConfig};
@@ -21,7 +22,7 @@ pub struct Cli {
     pub controller: Controller,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy)]
 enum GameMode {
     View,
     Control(EntityId),
@@ -36,7 +37,6 @@ pub struct Game {
     charge: f32,
     last_mouse_pos: Option<Vec2>,
     time_scale: f32,
-    #[allow(dead_code)]
     mode: Controller,
 }
 
@@ -72,9 +72,21 @@ impl Game {
             return true;
         }
 
-        match self.mode {
-            Controller::Simple => self.world.run_simple_ai(self.active_player(), dt),
+        let player_id = self.active_player();
+        let think_fn = match self.mode {
+            Controller::Simple => brain::simple::think,
             Controller::Mlp => todo!(),
+        };
+        let n = self.world.types.len();
+        for id in 0..n {
+            if Some(id) == player_id || self.world.types[id] != EntityType::Cell {
+                continue;
+            }
+            let action = think_fn(&self.world, id, dt);
+            if let Some((dir, amount)) = action.eject {
+                self.world.eject_mass(id, dir, amount);
+            }
+            self.world.gazes[id] = self.world.gazes[id].lerp(action.gaze, action.gaze_speed * dt);
         }
         self.world.update(dt);
 
