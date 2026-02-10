@@ -2,7 +2,7 @@ use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 use macroquad::prelude::*;
 
 use crate::invariants::*;
-use crate::simulation::{Awakening, Collision, EntityId, EntityType, Explosion, World};
+use crate::simulation::{Awakening, Collision, EntityType, Explosion, World};
 
 pub struct Renderer {
     material: Material,
@@ -29,7 +29,7 @@ impl Renderer {
         screen_center + (world_pos - self.camera_pos) * self.zoom
     }
 
-    pub fn render(&self, world: &World, player_id: EntityId, time: f32) {
+    pub fn render(&self, world: &World, time: f32) {
         let zoom = self.zoom;
         let boundary_screen = self.world_to_screen(Vec2::ZERO);
         let boundary_color = Color::new(0.3, 0.2, 0.5, 0.3);
@@ -100,9 +100,8 @@ impl Renderer {
             }
             let screen_pos = self.world_to_screen(world.positions[i]);
             let radius = mass_to_radius(world.masses[i]) * zoom;
-            let is_player = i == player_id;
-            let glow_intensity = if is_player { 0.5 } else { 0.4 };
-            let alpha = if is_player { 0.95 } else { 0.85 };
+            let glow_intensity = 0.4;
+            let alpha = 0.85;
             let color = Color::new(
                 world.colors[i].r,
                 world.colors[i].g,

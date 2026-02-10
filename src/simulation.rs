@@ -4,11 +4,8 @@ use crate::invariants::*;
 
 pub type EntityId = usize;
 
-const PLAYER_COLOR: Color = Color::new(0.3, 0.7, 1.0, 1.0);
-
 #[derive(Clone)]
 pub struct WorldConfig {
-    pub player_mass: f32,
     pub cell_count: usize,
     pub cell_mass: f32,
     pub cell_spawn_radius_min: f32,
@@ -20,7 +17,6 @@ pub struct WorldConfig {
 impl Default for WorldConfig {
     fn default() -> Self {
         Self {
-            player_mass: 3000.0,
             cell_count: 20,
             cell_mass: 500.0,
             cell_spawn_radius_min: BOUNDARY_RADIUS * 0.25,
@@ -108,10 +104,8 @@ impl World {
         }
     }
 
-    pub fn from_config(config: &WorldConfig) -> (Self, EntityId) {
+    pub fn from_config(config: &WorldConfig) -> Self {
         let mut world = Self::new();
-
-        let player = world.spawn_cell(Vec2::ZERO, config.player_mass, PLAYER_COLOR);
 
         for _ in 0..config.cell_count {
             let pos =
@@ -124,7 +118,7 @@ impl World {
             world.spawn_food(pos);
         }
 
-        (world, player)
+        world
     }
 
     fn alloc(
@@ -300,7 +294,7 @@ impl World {
     //      Prefers closer/larger food (scored by distance/mass ratio). Gaze looks towards food.
     //   4. WANDER: Otherwise, occasionally eject mass in a random direction.
     //      Gaze drifts towards movement direction.
-    fn run_ai(&mut self, player_id: Option<EntityId>, dt: f32) {
+    pub fn run_simple_ai(&mut self, player_id: Option<EntityId>, dt: f32) {
         let n = self.types.len();
         for id in 0..n {
             if Some(id) == player_id || self.types[id] != EntityType::Cell {
@@ -412,7 +406,7 @@ impl World {
         }
     }
 
-    pub fn update(&mut self, dt: f32, player_id: Option<EntityId>) {
+    pub fn update(&mut self, dt: f32) {
         self.collisions.clear();
         self.deaths.clear();
 
@@ -426,7 +420,6 @@ impl World {
         }
         self.awakenings.retain(|a| a.timer > 0.0);
 
-        self.run_ai(player_id, dt);
         self.maybe_spawn_food(dt);
 
         let world_center = Vec2::ZERO;
@@ -434,7 +427,8 @@ impl World {
 
         let friction_factor = FRICTION.powf(dt * 60.0);
         for i in 0..n {
-            if self.types[i] == EntityType::None {
+            let t = self.types[i];
+            if t == EntityType::None || t == EntityType::Food {
                 continue;
             }
             self.velocities[i] *= friction_factor;
@@ -663,7 +657,7 @@ mod tests {
 
         let initial_total = world.masses[large] + world.masses[small];
 
-        world.update(0.1, None);
+        world.update(0.1);
 
         let large_mass = if world.is_cell(large) {
             world.masses[large]
@@ -688,7 +682,7 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn_cell(vec2(BOUNDARY_RADIUS - 10.0, 0.0), 50.0, RED);
 
-        world.update(0.1, None);
+        world.update(0.1);
 
         let vel = world.velocities[id];
         assert!(vel.x < 0.0);
@@ -699,7 +693,7 @@ mod tests {
         let mut world = World::new();
         let id = world.spawn_cell(Vec2::ZERO, 100.0, RED);
 
-        world.update(1.0, None);
+        world.update(1.0);
 
         let mass = world.masses[id];
         assert!(mass < 100.0);
@@ -711,7 +705,7 @@ mod tests {
         let id = world.spawn_cell(Vec2::ZERO, MIN_CELL_MASS + 1.0, RED);
 
         for _ in 0..100 {
-            world.update(0.5, None);
+            world.update(0.5);
         }
 
         assert!(!world.is_cell(id));
@@ -726,7 +720,7 @@ mod tests {
 
         let initial_mass = world.masses[cell];
 
-        world.update(0.1, None);
+        world.update(0.1);
 
         let final_mass = world.masses[cell];
         assert!(final_mass > initial_mass - 1.0);
