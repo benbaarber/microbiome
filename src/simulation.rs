@@ -76,7 +76,9 @@ pub struct World {
     pub masses: Vec<f32>,
     pub colors: Vec<Color>,
     pub types: Vec<EntityType>,
-    pub gazes: Vec<Vec2>, // Normalized direction the entity is "looking"
+    pub heats: Vec<f32>,
+    pub overheated: Vec<bool>,
+    pub gazes: Vec<Vec2>,
     pub collisions: Vec<Collision>,
     pub explosions: Vec<Explosion>,
     pub awakenings: Vec<Awakening>,
@@ -94,6 +96,8 @@ impl World {
             masses: Vec::new(),
             colors: Vec::new(),
             types: Vec::new(),
+            heats: Vec::new(),
+            overheated: Vec::new(),
             gazes: Vec::new(),
             collisions: Vec::new(),
             explosions: Vec::new(),
@@ -127,6 +131,7 @@ impl World {
         vel: Vec2,
         mass: f32,
         color: Color,
+        heat: f32,
         entity_type: EntityType,
     ) -> EntityId {
         if let Some(id) = self.free_ids.pop() {
@@ -135,6 +140,8 @@ impl World {
             self.masses[id] = mass;
             self.colors[id] = color;
             self.types[id] = entity_type;
+            self.heats[id] = heat;
+            self.overheated[id] = false;
             self.gazes[id] = Vec2::ZERO;
             id
         } else {
@@ -144,17 +151,33 @@ impl World {
             self.masses.push(mass);
             self.colors.push(color);
             self.types.push(entity_type);
+            self.heats.push(heat);
+            self.overheated.push(false);
             self.gazes.push(Vec2::ZERO);
             id
         }
     }
 
     pub fn spawn_cell(&mut self, pos: Vec2, mass: f32, color: Color) -> EntityId {
-        self.alloc(pos, Vec2::ZERO, mass, color, EntityType::Cell)
+        self.alloc(
+            pos,
+            Vec2::ZERO,
+            mass,
+            color,
+            BASE_CELL_HEAT,
+            EntityType::Cell,
+        )
     }
 
-    pub fn spawn_mote(&mut self, pos: Vec2, vel: Vec2, mass: f32, color: Color) -> EntityId {
-        self.alloc(pos, vel, mass, color, EntityType::Mote)
+    pub fn spawn_mote(
+        &mut self,
+        pos: Vec2,
+        vel: Vec2,
+        mass: f32,
+        color: Color,
+        heat: f32,
+    ) -> EntityId {
+        self.alloc(pos, vel, mass, color, heat, EntityType::Mote)
     }
 
     pub fn spawn_food(&mut self, pos: Vec2) -> EntityId {
@@ -163,6 +186,7 @@ impl World {
             Vec2::ZERO,
             FOOD_MASS,
             Color::new(0.2, 0.8, 0.2, 1.0),
+            0.0,
             EntityType::Food,
         )
     }
@@ -203,7 +227,7 @@ impl World {
     }
 
     pub fn eject_mass(&mut self, id: EntityId, direction: Vec2, amount: f32) {
-        if !self.is_cell(id) {
+        if !self.is_cell(id) || self.overheated[id] {
             return;
         }
 
@@ -231,6 +255,8 @@ impl World {
 
         self.velocities[id] -= (ejected_mass / remaining_mass) * eject_velocity;
 
+        self.heats[id] += EJECT_HEAT_BOOST;
+
         let cell_radius = mass_to_radius(cell_mass);
         let mote_pos = cell_pos + dir * (cell_radius + 5.0);
         let mote_color = Color::new(
@@ -239,7 +265,13 @@ impl World {
             cell_color.b * 0.7,
             cell_color.a,
         );
-        self.spawn_mote(mote_pos, eject_velocity, ejected_mass, mote_color);
+        self.spawn_mote(
+            mote_pos,
+            eject_velocity,
+            ejected_mass,
+            mote_color,
+            self.heats[id],
+        );
     }
 
     pub fn explode(&mut self, id: EntityId) {
@@ -250,6 +282,7 @@ impl World {
         let pos = self.positions[id];
         let mass = self.masses[id];
         let color = self.colors[id];
+        let heat = self.heats[id];
         let radius = mass_to_radius(mass);
 
         let fragment_mass = mass / 8.0;
@@ -260,7 +293,13 @@ impl World {
             let dir = vec2(angle.cos(), angle.sin());
             let fragment_pos = pos + dir * (radius + 5.0);
             let fragment_vel = dir * EJECT_SPEED * 0.8;
-            self.spawn_mote(fragment_pos, fragment_vel, fragment_mass, fragment_color);
+            self.spawn_mote(
+                fragment_pos,
+                fragment_vel,
+                fragment_mass,
+                fragment_color,
+                heat,
+            );
         }
 
         self.explosions.push(Explosion {
@@ -303,6 +342,7 @@ impl World {
         let world_center = Vec2::ZERO;
         let n = self.types.len();
 
+        // friction
         let friction_factor = FRICTION.powf(dt * 60.0);
         for i in 0..n {
             let t = self.types[i];
@@ -313,6 +353,7 @@ impl World {
             self.positions[i] += self.velocities[i] * dt;
         }
 
+        // boundary repulsion
         for i in 0..n {
             let t = self.types[i];
             if t != EntityType::Cell && t != EntityType::Mote {
@@ -332,6 +373,23 @@ impl World {
             }
         }
 
+        // heat dissipation
+        for i in 0..n {
+            match self.types[i] {
+                EntityType::Cell => {
+                    let excess = (self.heats[i] - BASE_CELL_HEAT).max(0.0);
+                    let rate = HEAT_COOL_RATE * (1.0 + excess.sqrt());
+                    self.heats[i] += (BASE_CELL_HEAT - self.heats[i]) * rate * dt;
+                }
+                EntityType::Mote => {
+                    let rate = HEAT_COOL_RATE * (1.0 + self.heats[i].sqrt());
+                    self.heats[i] -= self.heats[i] * rate * dt;
+                }
+                _ => {}
+            }
+        }
+
+        // mass decay
         for i in 0..n {
             if self.types[i] != EntityType::Cell {
                 continue;
@@ -340,6 +398,7 @@ impl World {
             self.masses[i] -= MASS_DECAY_RATE * radius * dt * 0.1;
         }
 
+        // collision absorption
         let absorbers: Vec<EntityId> = (0..n)
             .filter(|&id| {
                 let t = self.types[id];
@@ -450,15 +509,30 @@ impl World {
             }
         }
 
+        // overheat exhausion period
+        for i in 0..n {
+            if self.types[i] != EntityType::Cell {
+                continue;
+            }
+            if self.heats[i] >= 1.0 {
+                self.overheated[i] = true;
+            } else if self.overheated[i] && self.heats[i] <= OVERHEAT_RECOVERY {
+                self.overheated[i] = false;
+            }
+        }
+
+        // cell death
         for i in 0..n {
             if self.types[i] == EntityType::Cell && self.masses[i] < MIN_CELL_MASS {
                 self.types[i] = EntityType::Mote;
             }
         }
 
+        // cell birth
         for i in 0..n {
             if self.types[i] == EntityType::Mote && self.masses[i] >= MOTE_SENTIENCE_MASS {
                 self.types[i] = EntityType::Cell;
+                self.heats[i] = BASE_CELL_HEAT;
                 let new_color = random_cell_color();
                 self.colors[i] = new_color;
                 self.awakenings.push(Awakening {
@@ -603,5 +677,35 @@ mod tests {
         let final_mass = world.masses[cell];
         assert!(final_mass > initial_mass - 1.0);
         assert!(world.count_by_type(EntityType::Food) == 0);
+    }
+
+    #[test]
+    fn test_eject_heats_cell_and_mote_inherits() {
+        let mut world = World::new();
+        let id = world.spawn_cell(Vec2::ZERO, 100.0, RED);
+
+        assert_eq!(world.heats[id], BASE_CELL_HEAT);
+
+        world.eject_mass(id, vec2(1.0, 0.0), 1.0);
+
+        assert!(world.heats[id] > BASE_CELL_HEAT);
+
+        let mote_id = (0..world.types.len())
+            .find(|&i| world.types[i] == EntityType::Mote)
+            .unwrap();
+        assert!(world.heats[mote_id] > 0.0);
+    }
+
+    #[test]
+    fn test_mote_heat_decays() {
+        let mut world = World::new();
+        let id = world.spawn_mote(Vec2::ZERO, Vec2::ZERO, 10.0, RED, 2.0);
+
+        let initial_heat = world.heats[id];
+        for _ in 0..10 {
+            world.update(0.1);
+        }
+        assert!(world.heats[id] < initial_heat);
+        assert!(world.heats[id] > 0.0);
     }
 }

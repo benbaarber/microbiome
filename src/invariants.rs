@@ -13,6 +13,12 @@ pub const FOOD_SPAWN_RATE: f32 = 2.0;
 pub const FOOD_MASS: f32 = 10.0;
 pub const MAX_FOOD: usize = 50;
 
+// Heat
+pub const BASE_CELL_HEAT: f32 = 0.2;
+pub const EJECT_HEAT_BOOST: f32 = 0.1;
+pub const HEAT_COOL_RATE: f32 = 0.3;
+pub const OVERHEAT_RECOVERY: f32 = 0.4;
+
 // Effect durations
 pub const EXPLOSION_DURATION: f32 = 0.3;
 pub const AWAKENING_DURATION: f32 = 0.5;

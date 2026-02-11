@@ -65,6 +65,7 @@ impl Renderer {
                 seed,
                 time,
                 Vec2::ZERO,
+                world.heats[i],
             );
         }
 
@@ -91,6 +92,7 @@ impl Renderer {
                 seed,
                 time,
                 Vec2::ZERO,
+                world.heats[i],
             );
         }
 
@@ -121,6 +123,7 @@ impl Renderer {
                 seed,
                 time,
                 gaze,
+                world.heats[i],
             );
         }
 
@@ -158,6 +161,7 @@ fn load_glow_material() -> Material {
                 UniformDesc::new("time", UniformType::Float1),
                 UniformDesc::new("seed", UniformType::Float1),
                 UniformDesc::new("gaze_offset", UniformType::Float2),
+                UniformDesc::new("heat", UniformType::Float1),
             ],
             pipeline_params: PipelineParams {
                 color_blend: Some(BlendState::new(
@@ -327,6 +331,7 @@ fn draw_glowing_circle(
     seed: f32,
     time: f32,
     gaze: Vec2,
+    heat: f32,
 ) {
     let glow_size = radius * 1.1;
 
@@ -336,6 +341,7 @@ fn draw_glowing_circle(
     material.set_uniform("time", time);
     material.set_uniform("seed", seed);
     material.set_uniform("gaze_offset", gaze);
+    material.set_uniform("heat", heat);
 
     draw_rectangle(
         x - glow_size,

@@ -261,6 +261,64 @@ impl Game {
         false
     }
 
+    fn draw_entity_stats(&self, target: EntityId, x: f32) {
+        if target >= self.world.types.len() {
+            return;
+        }
+        let label = format!(
+            "(#{})   Mass: {:>5.0}   Heat: ",
+            target, self.world.masses[target]
+        );
+        draw_text(&label, x, 30.0, 24.0, WHITE);
+
+        let heat_ratio = self.world.heats[target].clamp(0.0, 1.0);
+        let filled = if heat_ratio > 0.0 {
+            (heat_ratio * 10.0).ceil() as usize
+        } else {
+            0
+        };
+        let mut bar_x = x + measure_text(&label, None, 24, 1.0).width;
+        let block_w = measure_text("\u{2588}", None, 24, 1.0).width;
+
+        draw_text("[", bar_x, 30.0, 24.0, GRAY);
+        bar_x += measure_text("[", None, 24, 1.0).width;
+
+        for i in 0..10 {
+            let t = i as f32 / 9.0;
+            let r = t.powf(0.6);
+            let g = (1.0 - (2.0 * t - 1.0).powi(2)) * 0.3;
+            let b = (1.0 - t).powf(0.6);
+            if i < filled {
+                draw_text(
+                    "\u{2588}",
+                    bar_x + i as f32 * block_w,
+                    30.0,
+                    24.0,
+                    Color::new(r, g, b, 1.0),
+                );
+            } else {
+                draw_text(
+                    "\u{2588}",
+                    bar_x + i as f32 * block_w,
+                    30.0,
+                    24.0,
+                    Color::new(r, g, b, 0.15),
+                );
+            }
+        }
+
+        let after_bar = bar_x + 10.0 * block_w;
+        draw_text("]", after_bar, 30.0, 24.0, GRAY);
+        let pct_x = after_bar + measure_text("] ", None, 24, 1.0).width;
+        draw_text(
+            &format!("{:.0}%", heat_ratio * 100.0),
+            pct_x,
+            30.0,
+            24.0,
+            WHITE,
+        );
+    }
+
     fn draw_hud(&self) {
         match self.state {
             GameMode::View => {
@@ -268,13 +326,7 @@ impl Game {
             }
             GameMode::Control(target) => {
                 draw_text("CONTROL", 10.0, 30.0, 24.0, GREEN);
-                draw_text(
-                    &format!("(#{})   Mass: {:.0}", target, self.world.masses[target]),
-                    110.0,
-                    30.0,
-                    24.0,
-                    WHITE,
-                );
+                self.draw_entity_stats(target, 110.0);
 
                 let bar_w = 150.0;
                 let bar_h = 16.0;
@@ -299,15 +351,7 @@ impl Game {
             }
             GameMode::Spectate(target) => {
                 draw_text("SPECTATE", 10.0, 30.0, 24.0, YELLOW);
-                if target < self.world.masses.len() {
-                    draw_text(
-                        &format!("(#{})   Mass: {:.0}", target, self.world.masses[target]),
-                        120.0,
-                        30.0,
-                        24.0,
-                        WHITE,
-                    );
-                }
+                self.draw_entity_stats(target, 120.0);
             }
         }
         draw_text(

@@ -35,9 +35,7 @@ pub fn think(world: &World, id: EntityId, dt: f32) -> Action {
         let other_type = world.types[other];
         if other_type == EntityType::Food {
             let score = dist / other_mass;
-            if nearest_food.is_none()
-                || score < nearest_food.unwrap().0 / nearest_food.unwrap().2
-            {
+            if nearest_food.is_none() || score < nearest_food.unwrap().0 / nearest_food.unwrap().2 {
                 nearest_food = Some((dist, other_pos, other_mass));
             }
         } else if other_type == EntityType::Cell || other_type == EntityType::Mote {
@@ -56,7 +54,6 @@ pub fn think(world: &World, id: EntityId, dt: f32) -> Action {
 
     let danger_range = my_radius * 8.0;
     let chase_range = my_radius * 12.0;
-
 
     if let Some((dist, threat_pos)) = nearest_threat {
         if dist < danger_range {
