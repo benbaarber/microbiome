@@ -19,6 +19,12 @@ pub const EJECT_HEAT_BOOST: f32 = 0.1;
 pub const HEAT_COOL_RATE: f32 = 0.3;
 pub const OVERHEAT_RECOVERY: f32 = 0.4;
 
+// Heat field
+pub const HEAT_FIELD_RESOLUTION: usize = 256;
+pub const HEAT_FIELD_DIFFUSION: f32 = 30.0;
+pub const HEAT_FIELD_DECAY: f32 = 1.5;
+pub const HEAT_FIELD_DEPOSIT: f32 = 0.5;
+
 // Effect durations
 pub const EXPLOSION_DURATION: f32 = 0.3;
 pub const AWAKENING_DURATION: f32 = 0.5;

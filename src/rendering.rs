@@ -1,6 +1,7 @@
 use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 use macroquad::prelude::*;
 
+use crate::heat_field::HeatField;
 use crate::invariants::*;
 use crate::simulation::{Awakening, Collision, EntityType, Explosion, World};
 
@@ -8,14 +9,22 @@ pub struct Renderer {
     material: Material,
     pub camera_pos: Vec2,
     pub zoom: f32,
+    heat_image: Image,
+    heat_texture: Texture2D,
 }
 
 impl Renderer {
     pub fn new() -> Self {
+        let res = HEAT_FIELD_RESOLUTION as u16;
+        let heat_image = Image::gen_image_color(res, res, BLACK);
+        let heat_texture = Texture2D::from_image(&heat_image);
+        heat_texture.set_filter(FilterMode::Linear);
         Self {
             material: load_glow_material(),
             camera_pos: Vec2::ZERO,
             zoom: 1.0,
+            heat_image,
+            heat_texture,
         }
     }
 
@@ -29,7 +38,46 @@ impl Renderer {
         screen_center + (world_pos - self.camera_pos) * self.zoom
     }
 
-    pub fn render(&self, world: &World, time: f32) {
+    fn render_heat_field(&mut self, field: &HeatField) {
+        let res = field.resolution;
+        for y in 0..res {
+            for x in 0..res {
+                let raw = field.cells[y * res + x];
+                if raw < 0.001 {
+                    self.heat_image
+                        .set_pixel(x as u32, y as u32, Color::new(0.0, 0.0, 0.0, 0.0));
+                    continue;
+                }
+                let v = (raw / 2.0).clamp(0.0, 1.0);
+                let v = v.min(0.5);
+                let r = 0.1 + v * 0.4;
+                let g = v.powf(2.0) * 0.08;
+                let b = 0.2 - v * 0.05;
+                let a = v.powf(0.5) * 0.25;
+                self.heat_image
+                    .set_pixel(x as u32, y as u32, Color::new(r, g, b, a));
+            }
+        }
+        self.heat_texture.update(&self.heat_image);
+
+        let extent = field.world_extent;
+        let top_left = self.world_to_screen(vec2(-extent, -extent));
+        let bot_right = self.world_to_screen(vec2(extent, extent));
+        let size = bot_right - top_left;
+
+        draw_texture_ex(
+            &self.heat_texture,
+            top_left.x,
+            top_left.y,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(size.x, size.y)),
+                ..Default::default()
+            },
+        );
+    }
+
+    pub fn render(&mut self, world: &World, time: f32) {
         let zoom = self.zoom;
         let boundary_screen = self.world_to_screen(Vec2::ZERO);
         let boundary_color = Color::new(0.3, 0.2, 0.5, 0.3);
@@ -44,6 +92,8 @@ impl Renderer {
                 Color::new(boundary_color.r, boundary_color.g, boundary_color.b, alpha),
             );
         }
+
+        self.render_heat_field(&world.heat_field);
 
         let n = world.types.len();
 

@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+use crate::heat_field::HeatField;
 use crate::invariants::*;
 
 pub type EntityId = usize;
@@ -28,8 +29,15 @@ impl Default for WorldConfig {
 }
 
 fn random_cell_color() -> Color {
-    let hue = rand::gen_range(0.0, 1.0);
-    let (r, g, b) = hsv_to_rgb(hue, 0.7, 0.9);
+    // Bioluminescent palette: cyans, magentas, deep blues
+    let ranges: &[(f32, f32)] = &[
+        (0.5, 0.58),  // cyan / teal
+        (0.6, 0.72),  // blue / indigo
+        (0.82, 0.92), // magenta / violet
+    ];
+    let range = ranges[rand::gen_range(0, ranges.len())];
+    let hue = rand::gen_range(range.0, range.1);
+    let (r, g, b) = hsv_to_rgb(hue, 0.6, 0.95);
     Color::new(r, g, b, 1.0)
 }
 
@@ -83,6 +91,7 @@ pub struct World {
     pub explosions: Vec<Explosion>,
     pub awakenings: Vec<Awakening>,
     pub deaths: Vec<(EntityId, EntityId)>, // (victim, killer)
+    pub heat_field: HeatField,
 
     free_ids: Vec<EntityId>,
     food_spawn_timer: f32,
@@ -103,6 +112,7 @@ impl World {
             explosions: Vec::new(),
             awakenings: Vec::new(),
             deaths: Vec::new(),
+            heat_field: HeatField::new(HEAT_FIELD_RESOLUTION, BOUNDARY_RADIUS * 1.5),
             free_ids: Vec::new(),
             food_spawn_timer: 0.0,
         }
@@ -302,6 +312,9 @@ impl World {
             );
         }
 
+        self.heat_field
+            .deposit(pos, mass_to_radius(mass), radius * 3.0);
+
         self.explosions.push(Explosion {
             pos,
             radius,
@@ -388,6 +401,17 @@ impl World {
                 _ => {}
             }
         }
+
+        // heat field deposit + diffuse
+        for i in 0..n {
+            if self.types[i] == EntityType::None || self.types[i] == EntityType::Food {
+                continue;
+            }
+            let radius = mass_to_radius(self.masses[i]);
+            self.heat_field
+                .deposit(self.positions[i], self.heats[i], radius);
+        }
+        self.heat_field.diffuse_and_decay(dt);
 
         // mass decay
         for i in 0..n {
