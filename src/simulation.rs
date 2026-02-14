@@ -13,6 +13,7 @@ pub struct WorldConfig {
     pub cell_spawn_radius_max: f32,
     pub food_count: usize,
     pub food_spawn_radius: f32,
+    pub cell_explosion_threshold: Option<f32>,
 }
 
 impl Default for WorldConfig {
@@ -24,6 +25,7 @@ impl Default for WorldConfig {
             cell_spawn_radius_max: BOUNDARY_RADIUS * 0.75,
             food_count: 30,
             food_spawn_radius: BOUNDARY_RADIUS * 0.9,
+            cell_explosion_threshold: None,
         }
     }
 }
@@ -79,6 +81,7 @@ pub struct Awakening {
 }
 
 pub struct World {
+    pub config: WorldConfig,
     pub positions: Vec<Vec2>,
     pub velocities: Vec<Vec2>,
     pub masses: Vec<f32>,
@@ -98,8 +101,8 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> Self {
-        Self {
+    pub fn new(config: WorldConfig) -> Self {
+        let mut world = Self {
             positions: Vec::new(),
             velocities: Vec::new(),
             masses: Vec::new(),
@@ -115,26 +118,33 @@ impl World {
             heat_field: HeatField::new(HEAT_FIELD_RESOLUTION, BOUNDARY_RADIUS * 1.5),
             free_ids: Vec::new(),
             food_spawn_timer: 0.0,
+            config,
+        };
+
+        for _ in 0..world.config.cell_count {
+            let pos = random_point_in_circle(
+                world.config.cell_spawn_radius_min,
+                world.config.cell_spawn_radius_max,
+            );
+            world.spawn_cell(pos, world.config.cell_mass, random_cell_color());
         }
-    }
 
-    pub fn from_config(config: &WorldConfig) -> Self {
-        let mut world = Self::new();
-
-        for _ in 0..config.cell_count {
-            let pos =
-                random_point_in_circle(config.cell_spawn_radius_min, config.cell_spawn_radius_max);
-            world.spawn_cell(pos, config.cell_mass, random_cell_color());
-        }
-
-        for _ in 0..config.food_count {
-            let pos = random_point_in_circle(0.0, config.food_spawn_radius);
+        for _ in 0..world.config.food_count {
+            let pos = random_point_in_circle(0.0, world.config.food_spawn_radius);
             world.spawn_food(pos);
         }
 
         world
     }
+}
 
+impl Default for World {
+    fn default() -> Self {
+        World::new(WorldConfig::default())
+    }
+}
+
+impl World {
     fn alloc(
         &mut self,
         pos: Vec2,
@@ -311,9 +321,6 @@ impl World {
                 heat,
             );
         }
-
-        self.heat_field
-            .deposit(pos, mass_to_radius(mass), radius * 3.0);
 
         self.explosions.push(Explosion {
             pos,
@@ -545,6 +552,16 @@ impl World {
             }
         }
 
+        // mass explosion
+        if let Some(max_mass) = self.config.cell_explosion_threshold {
+            let to_explode: Vec<EntityId> = (0..n)
+                .filter(|&i| self.types[i] == EntityType::Cell && self.masses[i] >= max_mass)
+                .collect();
+            for id in to_explode {
+                self.explode(id);
+            }
+        }
+
         // cell death
         for i in 0..n {
             if self.types[i] == EntityType::Cell && self.masses[i] < MIN_CELL_MASS {
@@ -589,9 +606,17 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
 mod tests {
     use super::*;
 
+    fn empty_world() -> World {
+        World::new(WorldConfig {
+            cell_count: 0,
+            food_count: 0,
+            ..Default::default()
+        })
+    }
+
     #[test]
     fn test_spawn_cell() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_cell(vec2(10.0, 20.0), 50.0, RED);
 
         assert!(world.is_cell(id));
@@ -602,7 +627,7 @@ mod tests {
 
     #[test]
     fn test_mass_ejection_momentum_conservation() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_cell(Vec2::ZERO, 100.0, RED);
 
         let initial_mass = world.masses[id];
@@ -627,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_absorption_larger_absorbs_smaller() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let large = world.spawn_cell(Vec2::ZERO, 100.0, RED);
         let small = world.spawn_cell(vec2(5.0, 0.0), 30.0, BLUE);
 
@@ -655,7 +680,7 @@ mod tests {
 
     #[test]
     fn test_boundary_repulsion() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_cell(vec2(BOUNDARY_RADIUS - 10.0, 0.0), 50.0, RED);
 
         world.update(0.1);
@@ -666,7 +691,7 @@ mod tests {
 
     #[test]
     fn test_mass_decay() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_cell(Vec2::ZERO, 100.0, RED);
 
         world.update(1.0);
@@ -677,7 +702,7 @@ mod tests {
 
     #[test]
     fn test_cell_becomes_mote_below_min_mass() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_cell(Vec2::ZERO, MIN_CELL_MASS + 1.0, RED);
 
         for _ in 0..100 {
@@ -690,7 +715,7 @@ mod tests {
 
     #[test]
     fn test_food_absorption() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let cell = world.spawn_cell(Vec2::ZERO, 50.0, RED);
         world.spawn_food(vec2(3.0, 0.0));
 
@@ -705,7 +730,7 @@ mod tests {
 
     #[test]
     fn test_eject_heats_cell_and_mote_inherits() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_cell(Vec2::ZERO, 100.0, RED);
 
         assert_eq!(world.heats[id], BASE_CELL_HEAT);
@@ -722,7 +747,7 @@ mod tests {
 
     #[test]
     fn test_mote_heat_decays() {
-        let mut world = World::new();
+        let mut world = empty_world();
         let id = world.spawn_mote(Vec2::ZERO, Vec2::ZERO, 10.0, RED, 2.0);
 
         let initial_heat = world.heats[id];

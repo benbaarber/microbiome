@@ -41,9 +41,8 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn start(args: &Cli) -> Self {
-        let config = WorldConfig::default();
-        let world = World::from_config(&config);
+    pub fn start(args: &Cli, config: WorldConfig) -> Self {
+        let world = World::new(config.clone());
 
         Self {
             world,
@@ -111,7 +110,7 @@ impl Game {
         }
 
         if is_key_pressed(KeyCode::R) {
-            let world = World::from_config(&self.config);
+            let world = World::new(self.config.clone());
             self.world = world;
             self.state = GameMode::View;
             self.renderer.camera_pos = Vec2::ZERO;
