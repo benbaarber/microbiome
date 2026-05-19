@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+pub mod ctrnn;
 pub mod simple;
 
 pub struct Action {
